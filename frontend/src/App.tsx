@@ -2,15 +2,36 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { LoginPage } from './features/auth/LoginPage';
 import { AppLayout } from './layouts/AppLayout';
-import { ShieldCheck, Building2, Users, Wrench, Loader2 } from 'lucide-react';
+import { FlatsPage } from './features/society/FlatsPage';
+import { SocietySettingsPage } from './features/society/SocietySettingsPage';
+import {
+  ShieldCheck,
+  Building2,
+  Users,
+  Wrench,
+  Loader2,
+  CheckCircle2,
+  Layers,
+} from 'lucide-react';
+import { societyService } from './services/societyService';
 
 export default function App() {
   const { user, isAuthenticated, isLoading, fetchCurrentUser } = useAuthStore();
   const [currentNav, setCurrentNav] = useState('dashboard');
+  const [buildingCount, setBuildingCount] = useState<number>(0);
+  const [flatCount, setFlatCount] = useState<number>(0);
 
   useEffect(() => {
     fetchCurrentUser();
   }, [fetchCurrentUser]);
+
+  // Load dashboard overview counters when dashboard is active
+  useEffect(() => {
+    if (isAuthenticated) {
+      societyService.getBuildings().then((b) => setBuildingCount(b.length)).catch(() => {});
+      societyService.getFlats({ limit: 1 }).then((f) => setFlatCount(f.meta.total)).catch(() => {});
+    }
+  }, [isAuthenticated, currentNav]);
 
   // Initial authentication check state
   if (isLoading) {
@@ -32,77 +53,112 @@ export default function App() {
   // Authenticated user -> render AppLayout with active operational module
   return (
     <AppLayout activeNav={currentNav} onNavigate={setCurrentNav}>
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Welcome Banner */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">
-              Welcome back, {user.fullName}
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Signed in as <span className="font-semibold text-slate-700">{user.role}</span> • Session active via encrypted HttpOnly cookie
-            </p>
+      {currentNav === 'flats' ? (
+        <FlatsPage />
+      ) : currentNav === 'settings' ? (
+        <SocietySettingsPage />
+      ) : (
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Welcome Banner */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">
+                Welcome back, {user.fullName}
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Signed in as <span className="font-semibold text-slate-700">{user.role}</span> • Session active via encrypted HttpOnly cookie
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-500">Account Status:</span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                Active
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500">Account Status:</span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-              Active
-            </span>
+
+          {/* Operational Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Towers & Wings</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{buildingCount}</p>
+              <p className="text-[11px] text-slate-500 mt-1">Active wings registered</p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+                <Layers className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Residential Flats</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{flatCount}</p>
+              <p className="text-[11px] text-slate-500 mt-1">Compound unique units</p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Security Architecture</p>
+              <p className="text-xl font-bold text-slate-900 mt-1">RBAC Enforced</p>
+              <p className="text-[11px] text-slate-500 mt-1">HttpOnly session token</p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+                <Wrench className="w-5 h-5" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Operational Phase</p>
+              <p className="text-xl font-bold text-slate-900 mt-1">Phase 3 Ready</p>
+              <p className="text-[11px] text-slate-500 mt-1">Infrastructure verified</p>
+            </div>
+          </div>
+
+          {/* Quick Action Navigation for Admin */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-900 mb-3">Society Infrastructure Modules</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <button
+                onClick={() => setCurrentNav('flats')}
+                className="p-4 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-left transition-all group"
+              >
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs mb-1 group-hover:text-blue-600">
+                  <Building2 className="w-4 h-4 text-blue-600" />
+                  <span>Wings & Flat Directory</span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Manage wings, configure floor ranges, and register flats with uniqueness checks.
+                </p>
+              </button>
+
+              <button
+                onClick={() => setCurrentNav('settings')}
+                className="p-4 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-left transition-all group"
+              >
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs mb-1 group-hover:text-blue-600">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Society Settings</span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Configure society profile, maintenance due dates, and operational late fees.
+                </p>
+              </button>
+
+              <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-left">
+                <div className="flex items-center gap-2 text-slate-500 font-bold text-xs mb-1">
+                  <Users className="w-4 h-4" />
+                  <span>Resident Management</span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Upcoming Phase 4 module: resident onboarding and flat allocation.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Operational Overview Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Security State</p>
-            <p className="text-xl font-bold text-slate-900 mt-1">RBAC Enforced</p>
-            <p className="text-[11px] text-slate-500 mt-1">JWT tokenVersion verified</p>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Wing / Flat Scope</p>
-            <p className="text-xl font-bold text-slate-900 mt-1">Radhe Windson</p>
-            <p className="text-[11px] text-slate-500 mt-1">Compound unique indexes ready</p>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
-              <Users className="w-5 h-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Resident Isolation</p>
-            <p className="text-xl font-bold text-slate-900 mt-1">IDOR Shielded</p>
-            <p className="text-[11px] text-slate-500 mt-1">Server identity bound</p>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
-              <Wrench className="w-5 h-5" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Helpdesk Ticketing</p>
-            <p className="text-xl font-bold text-slate-900 mt-1">Audit Log Ready</p>
-            <p className="text-[11px] text-slate-500 mt-1">Transitions tracked</p>
-          </div>
-        </div>
-
-        {/* Active Module Placeholder / Content */}
-        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center py-14">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-6 h-6" />
-          </div>
-          <h3 className="text-base font-bold text-slate-900">
-            Phase 2: Authentication & Session Verification Complete
-          </h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto mt-2 leading-relaxed">
-            Your session is securely authenticated against the live database using encrypted HttpOnly cookies. We are now ready to implement Phase 3: Society Configuration, Wings, and Flat Directory with compound unique constraints.
-          </p>
-        </div>
-      </div>
+      )}
     </AppLayout>
   );
 }

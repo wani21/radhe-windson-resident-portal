@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   UserCheck,
+  Settings,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
@@ -76,6 +77,12 @@ export const AppLayout = ({ children, activeNav = 'dashboard', onNavigate }: App
       label: 'Notices & Bulletins',
       icon: Bell,
       roles: ['SOCIETY_ADMIN', 'COMMITTEE_MEMBER', 'RESIDENT'],
+    },
+    {
+      id: 'settings',
+      label: 'Society Settings',
+      icon: Settings,
+      roles: ['SOCIETY_ADMIN'],
     },
   ];
 

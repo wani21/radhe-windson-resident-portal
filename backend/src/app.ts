@@ -9,6 +9,9 @@ import { errorHandler } from './middleware/errorHandler';
 import { NotFoundError } from './utils/errors';
 import { sendSuccess } from './utils/response';
 import { authRoutes } from './modules/auth/auth.routes';
+import { societyRoutes } from './modules/society/society.routes';
+import { buildingRoutes } from './modules/buildings/building.routes';
+import { flatRoutes } from './modules/flats/flat.routes';
 
 export const createApp = (): express.Application => {
   const app = express();
@@ -62,8 +65,9 @@ export const createApp = (): express.Application => {
 
   // 7. API Modules
   app.use('/api/v1/auth', authRoutes);
-  // app.use('/api/v1/society', societyRoutes);
-  // app.use('/api/v1/flats', flatRoutes);
+  app.use('/api/v1/society', societyRoutes);
+  app.use('/api/v1/buildings', buildingRoutes);
+  app.use('/api/v1/flats', flatRoutes);
   // app.use('/api/v1/residents', residentRoutes);
   // app.use('/api/v1/visitors', visitorRoutes);
   // app.use('/api/v1/complaints', complaintRoutes);
