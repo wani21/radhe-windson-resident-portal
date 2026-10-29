@@ -40,7 +40,9 @@ export const FlatsPage = () => {
 
   const [showAddBuildingModal, setShowAddBuildingModal] = useState(false);
   const [showAddFlatModal, setShowAddFlatModal] = useState(false);
+  const [showEditBuildingModal, setShowEditBuildingModal] = useState(false);
   const [editingFlat, setEditingFlat] = useState<Flat | null>(null);
+  const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
 
   // Form states
   const [newBuildingName, setNewBuildingName] = useState('');
@@ -50,6 +52,9 @@ export const FlatsPage = () => {
   const [newFlatNumber, setNewFlatNumber] = useState('');
   const [newFlatFloor, setNewFlatFloor] = useState<number>(1);
   const [newFlatStatus, setNewFlatStatus] = useState<OccupancyStatus>('VACANT');
+
+  const [editBuildingName, setEditBuildingName] = useState('');
+  const [editBuildingFloors, setEditBuildingFloors] = useState<number>(10);
 
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -124,6 +129,40 @@ export const FlatsPage = () => {
       await fetchBuildings();
     } catch (err: any) {
       setModalError(err.response?.data?.error?.message || 'Failed to create building.');
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  // Open Edit Building modal with pre-populated values
+  const openEditBuilding = (building: Building) => {
+    setEditingBuilding(building);
+    setEditBuildingName(building.name);
+    setEditBuildingFloors(building.totalFloors);
+    setModalError(null);
+    setShowEditBuildingModal(true);
+  };
+
+  // Handle Edit Building
+  const handleEditBuilding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBuilding || !editBuildingName.trim()) {
+      setModalError('Building name is required.');
+      return;
+    }
+    setIsActionLoading(true);
+    setModalError(null);
+    try {
+      await societyService.updateBuilding(editingBuilding._id, {
+        name: editBuildingName.trim(),
+        totalFloors: Number(editBuildingFloors),
+      });
+      setShowEditBuildingModal(false);
+      setEditingBuilding(null);
+      setSuccessMessage('Building/Wing updated successfully.');
+      await fetchBuildings();
+    } catch (err: any) {
+      setModalError(err.response?.data?.error?.message || 'Failed to update building.');
     } finally {
       setIsActionLoading(false);
     }
@@ -276,21 +315,32 @@ export const FlatsPage = () => {
         </button>
 
         {buildings.map((b) => (
-          <button
-            key={b._id}
-            onClick={() => {
-              setSelectedBuildingId(b._id);
-              setCurrentPage(1);
-            }}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
-              selectedBuildingId === b._id
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <span>{b.name}</span>
-            <span className="text-[10px] opacity-75 font-normal">({b.totalFloors} fl)</span>
-          </button>
+          <div key={b._id} className="flex items-center gap-1 whitespace-nowrap">
+            <button
+              onClick={() => {
+                setSelectedBuildingId(b._id);
+                setCurrentPage(1);
+              }}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
+                selectedBuildingId === b._id
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <span>{b.name}</span>
+              <span className="text-[10px] opacity-75 font-normal">({b.totalFloors} fl)</span>
+            </button>
+            {isAdmin && (
+              <button
+                onClick={() => openEditBuilding(b)}
+                title={`Edit ${b.name}`}
+                aria-label={`Edit ${b.name}`}
+                className="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                <Edit2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
         ))}
       </div>
 
@@ -513,6 +563,89 @@ export const FlatsPage = () => {
                 >
                   {isActionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>Save Wing</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Building */}
+      {showEditBuildingModal && editingBuilding && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-blue-600" />
+                <h3 className="font-bold text-slate-900 text-sm">Edit Wing / Tower</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditBuildingModal(false);
+                  setEditingBuilding(null);
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {modalError && (
+              <div className="p-3 mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <span>{modalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleEditBuilding} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Wing / Tower Identifier
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Wing A, Tower 1, Blossom Block"
+                  value={editBuildingName}
+                  onChange={(e) => setEditBuildingName(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Total Floors
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={editBuildingFloors}
+                  onChange={(e) => setEditBuildingFloors(Number(e.target.value))}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Reducing below existing flat floors will be rejected by the server.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditBuildingModal(false);
+                    setEditingBuilding(null);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isActionLoading}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isActionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Update Wing</span>
                 </button>
               </div>
             </form>

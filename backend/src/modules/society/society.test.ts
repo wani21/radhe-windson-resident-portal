@@ -219,6 +219,70 @@ describe('Phase 3: Society Infrastructure, Wings & Flat Management Tests', () =>
       expect(delRes.status).toBe(400);
       expect(delRes.body.error.message).toContain('active flats');
     });
+
+    it('POST /api/v1/buildings should reject invalid floor count (zero) with 400', async () => {
+      const res = await request(app)
+        .post('/api/v1/buildings')
+        .set('Cookie', adminCookie)
+        .send({ name: 'Wing Zero', totalFloors: 0 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('POST /api/v1/buildings by RESIDENT should return 403 Forbidden', async () => {
+      const res = await request(app)
+        .post('/api/v1/buildings')
+        .set('Cookie', residentCookie)
+        .send({ name: 'Resident Wing', totalFloors: 5 });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('PATCH /api/v1/buildings by RESIDENT should return 403 Forbidden', async () => {
+      const bRes = await request(app)
+        .post('/api/v1/buildings')
+        .set('Cookie', adminCookie)
+        .send({ name: 'Wing D', totalFloors: 5 });
+
+      const res = await request(app)
+        .patch(`/api/v1/buildings/${bRes.body.data.building._id}`)
+        .set('Cookie', residentCookie)
+        .send({ totalFloors: 10 });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('GET /api/v1/buildings/:id with nonexistent ID should return 404', async () => {
+      const fakeId = new mongoose.Types.ObjectId().toString();
+      const res = await request(app)
+        .get(`/api/v1/buildings/${fakeId}`)
+        .set('Cookie', adminCookie);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('POST /api/v1/buildings should handle names with regex special characters safely', async () => {
+      // A name with regex special characters should not crash the duplicate check
+      const res = await request(app)
+        .post('/api/v1/buildings')
+        .set('Cookie', adminCookie)
+        .send({ name: 'Wing (A) [Special]', totalFloors: 3 });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.building.name).toBe('Wing (A) [Special]');
+
+      // Duplicate with different case should still be caught
+      const dupRes = await request(app)
+        .post('/api/v1/buildings')
+        .set('Cookie', adminCookie)
+        .send({ name: 'wing (a) [special]', totalFloors: 3 });
+
+      expect(dupRes.status).toBe(409);
+      expect(dupRes.body.error.code).toBe('CONFLICT');
+    });
   });
 
   /* -------------------------------------------------------------
@@ -353,6 +417,94 @@ describe('Phase 3: Society Infrastructure, Wings & Flat Management Tests', () =>
 
       expect(resOccupied.status).toBe(200);
       expect(resOccupied.body.data.flats.length).toBe(2);
+    });
+
+    it('PATCH /api/v1/flats/:id by RESIDENT should return 403 Forbidden', async () => {
+      const createRes = await request(app)
+        .post('/api/v1/flats')
+        .set('Cookie', adminCookie)
+        .send({ buildingId: wingAId, flatNumber: '301', floor: 3 });
+
+      const res = await request(app)
+        .patch(`/api/v1/flats/${createRes.body.data.flat._id}`)
+        .set('Cookie', residentCookie)
+        .send({ occupancyStatus: 'OCCUPIED' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('PATCH /api/v1/flats/:id should ignore buildingId (immutable field)', async () => {
+      const createRes = await request(app)
+        .post('/api/v1/flats')
+        .set('Cookie', adminCookie)
+        .send({ buildingId: wingAId, flatNumber: '401', floor: 4 });
+
+      // Attempt to move flat to a different building via body injection
+      const res = await request(app)
+        .patch(`/api/v1/flats/${createRes.body.data.flat._id}`)
+        .set('Cookie', adminCookie)
+        .send({ buildingId: wingBId, occupancyStatus: 'OCCUPIED' });
+
+      // Update should succeed (buildingId is simply ignored by the schema allow-list)
+      expect(res.status).toBe(200);
+      // The flat should still belong to the original building
+      expect(res.body.data.flat.buildingId._id || res.body.data.flat.buildingId).toBe(wingAId);
+    });
+
+    it('GET /api/v1/flats should exclude archived (soft-deleted) flats', async () => {
+      await request(app)
+        .post('/api/v1/flats')
+        .set('Cookie', adminCookie)
+        .send({ buildingId: wingAId, flatNumber: '501', floor: 5 });
+
+      const createRes2 = await request(app)
+        .post('/api/v1/flats')
+        .set('Cookie', adminCookie)
+        .send({ buildingId: wingAId, flatNumber: '502', floor: 5 });
+
+      // Archive one flat
+      await request(app)
+        .delete(`/api/v1/flats/${createRes2.body.data.flat._id}`)
+        .set('Cookie', adminCookie);
+
+      // Query should return only the non-archived flat
+      const res = await request(app)
+        .get(`/api/v1/flats?buildingId=${wingAId}`)
+        .set('Cookie', adminCookie);
+
+      expect(res.status).toBe(200);
+      const flatNumbers = res.body.data.flats.map((f: any) => f.flatNumber);
+      expect(flatNumbers).toContain('501');
+      expect(flatNumbers).not.toContain('502');
+    });
+
+    it('GET /api/v1/flats should support pagination', async () => {
+      // Create 5 flats in Wing A
+      for (let i = 1; i <= 5; i++) {
+        await request(app)
+          .post('/api/v1/flats')
+          .set('Cookie', adminCookie)
+          .send({ buildingId: wingAId, flatNumber: `PG-${i}`, floor: 1 });
+      }
+
+      // Page 1 with limit 2
+      const page1 = await request(app)
+        .get(`/api/v1/flats?buildingId=${wingAId}&page=1&limit=2`)
+        .set('Cookie', adminCookie);
+
+      expect(page1.status).toBe(200);
+      expect(page1.body.data.flats.length).toBe(2);
+      expect(page1.body.meta.total).toBe(5);
+      expect(page1.body.meta.totalPages).toBe(3);
+
+      // Page 3 with limit 2 (should have 1 remaining)
+      const page3 = await request(app)
+        .get(`/api/v1/flats?buildingId=${wingAId}&page=3&limit=2`)
+        .set('Cookie', adminCookie);
+
+      expect(page3.status).toBe(200);
+      expect(page3.body.data.flats.length).toBe(1);
     });
   });
 });

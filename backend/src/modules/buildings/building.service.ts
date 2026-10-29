@@ -4,6 +4,15 @@ import { societyService } from '../society/society.service';
 import { ConflictError, NotFoundError, BadRequestError } from '../../utils/errors';
 import { CreateBuildingInput, UpdateBuildingInput } from './building.schema';
 
+/**
+ * Escapes RegExp special characters so a user-supplied string is matched
+ * literally in a case-insensitive uniqueness check. Without this, names
+ * containing characters like "(", ".", or "[" would either throw a
+ * SyntaxError (500) or produce false-positive matches.
+ */
+const escapeRegExp = (str: string): string =>
+  str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export class BuildingService {
   async getAllBuildings(): Promise<IBuilding[]> {
     return Building.find({ isDeleted: false }).sort({ name: 1 });
@@ -20,10 +29,10 @@ export class BuildingService {
   async createBuilding(input: CreateBuildingInput): Promise<IBuilding> {
     const society = await societyService.getSociety();
 
-    // Check duplicate building name in society
+    // Check duplicate building name in society (case-insensitive, regex-safe)
     const duplicate = await Building.findOne({
       societyId: society._id,
-      name: { $regex: new RegExp(`^${input.name.trim()}$`, 'i') },
+      name: { $regex: new RegExp(`^${escapeRegExp(input.name.trim())}$`, 'i') },
       isDeleted: false,
     });
 
@@ -46,7 +55,7 @@ export class BuildingService {
       const duplicate = await Building.findOne({
         societyId: building.societyId,
         _id: { $ne: building._id },
-        name: { $regex: new RegExp(`^${input.name.trim()}$`, 'i') },
+        name: { $regex: new RegExp(`^${escapeRegExp(input.name.trim())}$`, 'i') },
         isDeleted: false,
       });
 
