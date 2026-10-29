@@ -4,6 +4,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { AppLayout } from './layouts/AppLayout';
 import { FlatsPage } from './features/society/FlatsPage';
 import { SocietySettingsPage } from './features/society/SocietySettingsPage';
+import { ResidentsPage } from './features/residents/ResidentsPage';
 import {
   ShieldCheck,
   Building2,
@@ -14,12 +15,14 @@ import {
   Layers,
 } from 'lucide-react';
 import { societyService } from './services/societyService';
+import { residentService } from './services/residentService';
 
 export default function App() {
   const { user, isAuthenticated, isLoading, fetchCurrentUser } = useAuthStore();
   const [currentNav, setCurrentNav] = useState('dashboard');
   const [buildingCount, setBuildingCount] = useState<number>(0);
   const [flatCount, setFlatCount] = useState<number>(0);
+  const [residentCount, setResidentCount] = useState<number>(0);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -30,6 +33,7 @@ export default function App() {
     if (isAuthenticated) {
       societyService.getBuildings().then((b) => setBuildingCount(b.length)).catch(() => {});
       societyService.getFlats({ limit: 1 }).then((f) => setFlatCount(f.meta.total)).catch(() => {});
+      residentService.getResidents({ residencyStatus: 'ACTIVE', limit: 1 }).then((r) => setResidentCount(r.meta.total)).catch(() => {});
     }
   }, [isAuthenticated, currentNav]);
 
@@ -57,6 +61,8 @@ export default function App() {
         <FlatsPage />
       ) : currentNav === 'settings' ? (
         <SocietySettingsPage />
+      ) : currentNav === 'residents' ? (
+        <ResidentsPage />
       ) : (
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Welcome Banner */}
@@ -110,9 +116,9 @@ export default function App() {
               <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
                 <Wrench className="w-5 h-5" />
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Operational Phase</p>
-              <p className="text-xl font-bold text-slate-900 mt-1">Phase 3 Ready</p>
-              <p className="text-[11px] text-slate-500 mt-1">Infrastructure verified</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Residents</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">{residentCount}</p>
+              <p className="text-[11px] text-slate-500 mt-1">Registered occupants</p>
             </div>
           </div>
 
@@ -146,13 +152,26 @@ export default function App() {
                 </p>
               </button>
 
-              <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-left">
-                <div className="flex items-center gap-2 text-slate-500 font-bold text-xs mb-1">
-                  <Users className="w-4 h-4" />
+              <button
+                onClick={() => setCurrentNav('residents')}
+                className="p-4 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-left transition-all group"
+              >
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-xs mb-1 group-hover:text-blue-600">
+                  <Users className="w-4 h-4 text-amber-600" />
                   <span>Resident Management</span>
                 </div>
+                <p className="text-[11px] text-slate-500">
+                  Register residents, manage households, track occupancy and move-outs.
+                </p>
+              </button>
+
+              <div className="p-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-left">
+                <div className="flex items-center gap-2 text-slate-500 font-bold text-xs mb-1">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Visitor & Complaints</span>
+                </div>
                 <p className="text-[11px] text-slate-400">
-                  Upcoming Phase 4 module: resident onboarding and flat allocation.
+                  Upcoming Phase 5+ modules: visitor gate desk and complaint helpdesk.
                 </p>
               </div>
             </div>
